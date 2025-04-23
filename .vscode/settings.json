@@ -1,0 +1,7 @@
+{
+    "python.analysis.autoImportCompletions": true,
+    "search.useIgnoreFiles": false,
+    "python.analysis.extraPaths": [
+        "./backend/src"
+    ]
+}
