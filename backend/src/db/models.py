@@ -1,3 +1,4 @@
+import json
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import create_engine, Column, Integer, String
 
@@ -11,7 +12,7 @@ class User(Base):
     devices = Column(String) # json list
 
 
-class Clipboard(Base):
+class Clip(Base):
     __tablename__ = "clipboard"
     
     id = Column(String, primary_key=True, index=True)
@@ -19,6 +20,19 @@ class Clipboard(Base):
     text = Column(String)
     time = Column(String) # datetime
     
+    
+class Folder(Base):
+    __tablename__ = "folder"
+    id = Column(String, primary_key=True, index=True)
+    user_id = Column(String)
+    name = Column(String)
+    clips = Column(String) # json list[Clip id]
+    
+    def get_clips(self):
+        return json.loads(self.clips)
+    
+    def put_clips(self, cs):
+        self.clips = json.dumps(cs)
     
 def create_tables(engine):
     Base.metadata.create_all(bind=engine)

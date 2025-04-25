@@ -6,31 +6,26 @@ from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from .db import db
-from .db.models import Clipboard, User
+from .db.models import Clip, User
 
 from sqlalchemy.orm import Session
         
-def create_user(name: str, email: str, db: Session = Depends(db.get_db)):
-    id = str(uuid4())
-    user = User(id=id, name=name, email=email)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return {"id: ", id}
+def create_user(name: str, email: str):
+    
+    id = db.create_user(name, email)
+    
+    if id:
+        return {"status": "success", "message": "Created new user", "data": {"id: ", id}}
+    else:
+        return {"status": "failure", "message": "Failed to create new user", "data": {}}
+def get_user(user_id: str):
+    return db.get_user(user_id)
 
-
-def get_user(user_id: str, db: Session = Depends(db.get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-
-async def clipboard_socket(websocket: WebSocket, userId: str, db: Session = Depends(db.get_db)):
+async def clipboard_socket(websocket: WebSocket, userId: str):
     await websocket.accept()
     
     try:
-        clipboard_items: list[dict] = get_clipboard(userId, db=db) 
+        clipboard_items: list[dict] = db.get_clipboard(userId) 
     
         # Upon open, send the current state of the clipboard
         if clipboard_items and len(clipboard_items) != 0:
@@ -53,32 +48,18 @@ async def clipboard_socket(websocket: WebSocket, userId: str, db: Session = Depe
 
             text = data_d.get('text', '')
             time = data_d.get('time', '')
-            
-            body = Body(text=text, user=userId, time=time)
-                    
-            await websocket.send_text(json.dumps(add_to_clipboard(userId, body, db=db)))
+                                
+            await websocket.send_text(json.dumps(db.add_to_clipboard(userId, text, time)))
     except WebSocketDisconnect:
         print("Client disconnected")
 
-def get_clipboard(user_id: str, db: Session = Depends(db.get_db)):
-    clipboard = db.query(Clipboard).filter(Clipboard.user_id == user_id).all()
-
-    if clipboard is None:
-        return []
-
-    return [{"text": clip.text, "time": clip.time} for clip in clipboard]
+def get_clipboard(user_id: str):
+    return db.get_clipboard(user_id)
 
 class Body(BaseModel):
     text: str
     user: str
     time: str
-
-def add_to_clipboard(userId: str, body: Body, db: Session = Depends(db.get_db)):
-    id = str(uuid4())
-    new_clip = Clipboard(id=id, user_id=userId, text=body.text, time=body.time) # Generate time in backend?
     
-    db.add(new_clip)
-    
-    db.commit()
-    
-    return [{"text": new_clip.text, "time": new_clip.time}]
+def add_to_clipboard(userId: str, text: Body):
+    ...

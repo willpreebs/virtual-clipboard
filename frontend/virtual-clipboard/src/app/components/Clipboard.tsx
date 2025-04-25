@@ -2,20 +2,31 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { Card, Button, CardContent, Typography } from '@mui/material';
-import Clip from './Clip';
+import { Card, Button, CardContent, Typography, Box } from '@mui/material';
+import ClipboardItem from './Clip';
 import ClipForm from './ClipForm';
 
-export type Clipboard = {
+import Sidebar from './Sidebar';
+
+export type Clip = {
     text: string;
     time: string;
 }
 
 export default function Clipboard() {
 
-    const [clipboard, setClipboard] = useState<Clipboard[]>([]);
+    const [clipboard, setClipboard] = useState<Clip[]>([]);
+    const [favorites, setFavorites] = useState<Clip[]>([]);
+
     const ws = useRef<WebSocket | null>(null);
     const user = useRef<number>(1);
+
+
+    const toggleFavorite = (clip: Clip) => {
+        setFavorites((prev) =>
+            prev.includes(clip) ? prev.filter((i) => i !== clip) : [...prev, clip]
+        );
+    };
 
     const getCurrentTime = () => {
         return new Date().toISOString()
@@ -26,14 +37,14 @@ export default function Clipboard() {
 
         ws.current.onopen = () => {
             console.log('WebSocket connected');
-            ws.current?.send(JSON.stringify({ text: 'Hello from Next.js!', time: getCurrentTime() }));
+            // ws.current?.send(JSON.stringify({ text: 'Hello from Next.js!', time: getCurrentTime() }));
             //   ws.current?.send("hello");
         };
 
         ws.current.onmessage = (event) => {
             try {
                 console.log("received websocket event: ", event);
-                const data: Clipboard[] = JSON.parse(event.data);
+                const data: Clip[] = JSON.parse(event.data);
                 setClipboard((prev) => [...prev, ...data]);
             } catch (err) {
                 console.error("Failed to parse message:", event.data, err);
@@ -57,16 +68,21 @@ export default function Clipboard() {
 
 
     return (
-        <div style={{ display: 'flex'}}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', margin: '20px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Sidebar />
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', margin: '20px', fontSize: '20' }}>
+                <Typography variant="h3" className='font-semibold'>
+                    Clipboard History
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', m: 2}}>
+                    {clipboard.map((clip, idx) => (
+                        <ClipboardItem key={idx} clip={clip} toggleFavorite={toggleFavorite} favorites={favorites}/>
+                    ))}
+                </Box>
+            </Box>
 
-            {clipboard.map((clip, idx) => (
-                <Clip key={idx} clip={clip}/>
-            ))}
-            </div>
+            <ClipForm postToClipboard={postToClipboard} />
+        </Box>
 
-            <ClipForm postToClipboard={postToClipboard}/>
-        </div>
-        
     );
 }
