@@ -1,6 +1,7 @@
 
 
 import json
+from typing import Optional
 from uuid import uuid4
 from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -21,11 +22,11 @@ def create_user(name: str, email: str):
 def get_user(user_id: str):
     return db.get_user(user_id)
 
-async def clipboard_socket(websocket: WebSocket, userId: str):
+async def clipboard_socket(websocket: WebSocket, userId: str, folderName: Optional[str] = None):
     await websocket.accept()
     
     try:
-        clipboard_items: list[dict] = db.get_clipboard(userId) 
+        clipboard_items: list[dict] = db.get_folder(userId, folderName) if folderName else db.get_clipboard(userId) 
     
         # Upon open, send the current state of the clipboard
         if clipboard_items and len(clipboard_items) != 0:
@@ -65,5 +66,17 @@ def add_to_clipboard(userId: str, text: Body):
     ...
     
 
-def toggle_clipboard_folder_status(userId: str, clipId: str, folderName: str):
-    return db.toggle_clipboard_folder_status(userId, clipId, folderName)
+def add_to_folder(userId: str, clipId: str, folderName: str):
+    return db.add_to_folder(userId, clipId, folderName)
+
+def get_folders(userId: str):
+    return db.get_folders(userId)
+
+def add_folder(userId: str, folderName: str):
+    return db.add_folder(userId, folderName)
+
+def get_folder(userId: str, folderName: str):
+    return db.get_folder(userId, folderName)
+
+def remove_folder(userId: str, folderName: str):
+    return db.remove_folder(userId, folderName)

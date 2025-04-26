@@ -1,4 +1,3 @@
-
 from functools import wraps
 import json
 from typing import Callable, ParamSpec, TypeVar
@@ -30,12 +29,14 @@ def init_db():
     
     session_maker = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     
+    models.drop_tables(engine)
     models.create_tables(engine)
+    
+    # delete everything from tables
+    
 
     create_test_user()
     create_favorites_folder('1')
-    
-    
 
 def session_handler(func: Callable[P, R]) -> Callable[P, R | None]:
 
@@ -98,7 +99,7 @@ def get_clipboard(session: Session, user_id: str):
     return [{"text": clip.text, "time": clip.time, "id": clip.id} for clip in clipboard]
 
 @session_handler
-def toggle_clipboard_folder_status(session: Session, user_id, clip_id, folder_name):
+def add_to_folder(session: Session, user_id, clip_id, folder_name):
     
     folder = session.query(Folder).filter_by(user_id=user_id, name=folder_name).first()
     
@@ -137,7 +138,7 @@ def create_favorites_folder(session: Session, user_id):
     
     id = str(uuid4())
     
-    folder = Folder(id=id, user_id=user_id, name="favorites", clips=json.dumps([]))
+    folder = Folder(id=id, user_id=user_id, name="Favorites", clips=json.dumps([]))
     
     session.add(folder)
     session.commit()
@@ -171,7 +172,7 @@ def get_clip(session: Session, clip_id: str):
 def get_folder(session: Session, user_id: str, folder_name: str):
     folder = session.query(Folder).filter_by(user_id=user_id, name=folder_name).first()
     if not folder:
-        raise HTTPException(status_code=404, detail="Folder not found")
+        return []
     
     clip_ids = [c for c in folder.get_clips() if c]
     
@@ -179,4 +180,30 @@ def get_folder(session: Session, user_id: str, folder_name: str):
     
     return [{"text": clip.text, "time": clip.time, "id": clip.id} for clip in clips]
     
+
+@session_handler
+def get_folders(session: Session, user_id):
+    return {"status": "success", "folders": [{"name": folder.name} for folder in session.query(Folder).filter_by(user_id=user_id).all()]}
+
+@session_handler
+def add_folder(session: Session, user_id, folder_name):
+    id = str(uuid4())
     
+    folder = Folder(id=id, user_id=user_id, name=folder_name, clips=json.dumps([]))
+    
+    session.add(folder)
+    session.commit()
+    
+    return {"status": "success", "message": "Successfully created new folder", "data": {"id": id}}
+
+@session_handler
+def remove_folder(session: Session, user_id, folder_name):
+    folder = session.query(Folder).filter_by(user_id=user_id, name=folder_name).first()
+    
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    session.delete(folder)
+    session.commit()
+    
+    return {"status": "success", "message": "Successfully deleted folder"}

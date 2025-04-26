@@ -22,7 +22,17 @@ def set_up_router() -> APIRouter:
     
     server.add_api_websocket_route(path="/user/{userId}/updateClipboard", endpoint=router.clipboard_socket)
     
-    server.add_api_route(path="/user/{userId}/clip/{clipId}/folder/{folderName}", endpoint=router.toggle_clipboard_folder_status, methods=["POST"])
+    server.add_api_route(path="/user/{userId}/clip/{clipId}/folder/{folderName}", endpoint=router.add_to_folder, methods=["POST"])
+        
+    server.add_api_route(path="/user/{userId}/addFolder/{folderName}", endpoint=router.add_folder, methods=["POST"])
+    
+    server.add_api_route(path="/user/{userId}/removeFolder/{folderName}", endpoint=router.remove_folder, methods=["DELETE"])
+    
+    server.add_api_route(path="/user/{userId}/folders", endpoint=router.get_folders, methods=["GET"])
+    
+    server.add_api_route(path="/user/{userId}/folder/{folderName}", endpoint=router.get_folder, methods=["GET"])
+    
+    
     
     return server
     

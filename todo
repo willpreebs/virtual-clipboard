@@ -1,0 +1,35 @@
+BACKEND
+
+IMPROVEMENTS:
+- Add logging
+- Use decorator instead of dependency injection for db sessions
+
+FEATURES:
+- Folders
+- Favorites (Save on backend) (Could just be another folder?)
+- Handle queries that can specify # of clips
+- Handle queries that specify date of clip
+- Handle queries that search clips
+
+BUGS:
+
+
+
+
+FRONTEND
+
+IMPROVEMENTS:
+- Formatting
+- Remove Folder dialogue (ask user if they want to delete non-empty folder anyway)
+
+FEATURES:
+- Folders
+    - Add folder
+    - Display current folders
+    - Add clip to folder
+
+BUGS:
+
+
+
+
