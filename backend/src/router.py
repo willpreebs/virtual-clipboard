@@ -63,3 +63,7 @@ class Body(BaseModel):
     
 def add_to_clipboard(userId: str, text: Body):
     ...
+    
+
+def toggle_clipboard_folder_status(userId: str, clipId: str, folderName: str):
+    return db.toggle_clipboard_folder_status(userId, clipId, folderName)

@@ -32,14 +32,17 @@ def init_db():
     
     models.create_tables(engine)
 
-    with session_maker() as session:
-        create_test_user(session)
+    create_test_user()
+    create_favorites_folder('1')
+    
     
 
 def session_handler(func: Callable[P, R]) -> Callable[P, R | None]:
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | None:
+        if kwargs.get('session') is not None:
+            return func(*args, **kwargs)
         # Instantiate a new session
         session = session_maker()
         try:
@@ -59,11 +62,15 @@ def session_handler(func: Callable[P, R]) -> Callable[P, R | None]:
         
 @session_handler
 def create_test_user(session: Session):
+    
+    test_id = '1'
         
-    user = User(id='1', name="testuser", email="testemail@test.com")
+    user = User(id=test_id, name="testuser", email="testemail@test.com")
     
     session.add(user)
     session.commit()
+    
+    return '1'
     
 class Body(BaseModel):
     text: str
@@ -88,7 +95,7 @@ def get_clipboard(session: Session, user_id: str):
     if clipboard is None:
         return []
 
-    return [{"text": clip.text, "time": clip.time} for clip in clipboard]
+    return [{"text": clip.text, "time": clip.time, "id": clip.id} for clip in clipboard]
 
 @session_handler
 def toggle_clipboard_folder_status(session: Session, user_id, clip_id, folder_name):
@@ -122,10 +129,10 @@ def toggle_clipboard_folder_status(session: Session, user_id, clip_id, folder_na
 @session_handler
 def create_favorites_folder(session: Session, user_id):
     
-    user = session.query(User).filter_by(user_id=user_id).first()
+    user = session.query(User).filter_by(id=user_id).first()
     
     if not user:
-        print("Folder does not exist")
+        print("User missing from db")
         return
     
     id = str(uuid4())
@@ -154,3 +161,22 @@ def get_user(session: Session, user_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+@session_handler
+def get_clip(session: Session, clip_id: str):
+    clip = session.query(Clip).filter(Clip.id == clip_id).first()
+    return clip
+
+@session_handler
+def get_folder(session: Session, user_id: str, folder_name: str):
+    folder = session.query(Folder).filter_by(user_id=user_id, name=folder_name).first()
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    clip_ids = [c for c in folder.get_clips() if c]
+    
+    clips = [c for c in map(lambda clip_id: get_clip(session=session, clip_id=clip_id), clip_ids) if c]
+    
+    return [{"text": clip.text, "time": clip.time, "id": clip.id} for clip in clips]
+    
+    

@@ -3,29 +3,66 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { Card, Button, CardContent, Typography, Box } from '@mui/material';
-import ClipboardItem from './Clip';
+
 import ClipForm from './ClipForm';
 
 import Sidebar from './Sidebar';
 
+import { toggleFavorite as togFav } from '../utils/urls';
+import ClipList from './ClipList';
+
 export type Clip = {
     text: string;
     time: string;
+    id: string
 }
 
 export default function Clipboard() {
 
+    const url_base = "localhost:8000"
+
     const [clipboard, setClipboard] = useState<Clip[]>([]);
     const [favorites, setFavorites] = useState<Clip[]>([]);
 
+    const [folders, setFolders] = useState<string[]>([]);
+    const [folder, setFolder] = useState<string | null>(null);
+
     const ws = useRef<WebSocket | null>(null);
-    const user = useRef<number>(1);
+    const user = useRef<string>("1");
 
 
     const toggleFavorite = (clip: Clip) => {
         setFavorites((prev) =>
             prev.includes(clip) ? prev.filter((i) => i !== clip) : [...prev, clip]
         );
+        const url = togFav(url_base, user.current, clip.id);
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            // body: JSON.stringify)
+        })
+            .then((response) => {
+                console.log("response: ", response);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            }
+            )
+            .then((data) => {
+                console.log('Success:', data);
+            }
+            )
+            .catch((error) => {
+                console.error('Error:', error);
+            }
+            );
+    // console.log("Toggled favorite for: ", clip);
+    // console.log("Favorites: ", favorites);
+
     };
 
     const getCurrentTime = () => {
@@ -33,7 +70,7 @@ export default function Clipboard() {
     }
 
     useEffect(() => {
-        ws.current = new WebSocket(`ws://localhost:8000/user/${user.current || 1}/updateClipboard`);
+        ws.current = new WebSocket(`ws://${url_base}/user/${user.current || 1}/updateClipboard`);
 
         ws.current.onopen = () => {
             console.log('WebSocket connected');
@@ -74,11 +111,7 @@ export default function Clipboard() {
                 <Typography variant="h3" className='font-semibold'>
                     Clipboard History
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', m: 2}}>
-                    {clipboard.map((clip, idx) => (
-                        <ClipboardItem key={idx} clip={clip} toggleFavorite={toggleFavorite} favorites={favorites}/>
-                    ))}
-                </Box>
+                <ClipList clipboard={clipboard} toggleFavorite={toggleFavorite} favorites={favorites} />
             </Box>
 
             <ClipForm postToClipboard={postToClipboard} />
