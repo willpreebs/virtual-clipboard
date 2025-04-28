@@ -22,6 +22,8 @@ def set_up_router() -> APIRouter:
     
     server.add_api_websocket_route(path="/user/{userId}/updateClipboard", endpoint=router.clipboard_socket)
     
+    server.add_api_websocket_route(path="/user/{userId}/updateFolder/{folderName}", endpoint=router.folder_socket)
+    
     server.add_api_route(path="/user/{userId}/clip/{clipId}/folder/{folderName}", endpoint=router.add_to_folder, methods=["POST"])
         
     server.add_api_route(path="/user/{userId}/addFolder/{folderName}", endpoint=router.add_folder, methods=["POST"])

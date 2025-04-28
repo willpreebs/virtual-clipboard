@@ -10,12 +10,12 @@ import Sidebar from './Sidebar';
 
 import { addFolderUrl, getFolders, toggleFolder } from '../utils/urls';
 import ClipList from './ClipList';
-import { get } from 'http';
 
 export type Clip = {
     text: string;
     time: string;
     id: string
+    favorite: boolean
 }
 
 export default function Clipboard() {
@@ -27,12 +27,13 @@ export default function Clipboard() {
     const [clipboard, setClipboard] = useState<Clip[]>([]);
     const [favorites, setFavorites] = useState<Clip[]>([]);
 
-    const [folders, setFolders] = useState<string[]>([]);
-    const [folder, setFolder] = useState<string | null>(null);
+    const [folders, setFolders] = useState<string[]>(["All", "Favorites"]);
+    const [folder, setFolder] = useState<string>("All"); // shows All folder by default
     const [user, setUser] = useState<string>("1");
 
-
     const ws = useRef<WebSocket | null>(null);
+
+    const folderSocket = useRef<WebSocket | null>(null);
 
     // set folders
     useEffect(() => {
@@ -51,7 +52,9 @@ export default function Clipboard() {
             .then((data) => {
                 console.log('Success:', data);
                 // set folders to an array of the name of the folders
-                setFolders(data.folders.map((folder: { name: string }) => folder.name));
+                setFolders(["All", "Favorites", 
+                    ...data.folders.map((folder: { name: string }) => 
+                        {folder.name}).filter((name: string) => name !== "Favorites")]);
             })
             .catch((error) => {
                 console.error('Error:', error);
@@ -70,10 +73,15 @@ export default function Clipboard() {
 
 
     useEffect(() => {
+
+        if (folder !== "All") {
+            return
+        }
+
         ws.current = new WebSocket(`${websocket_base}/user/${user || 1}/updateClipboard`);
 
         ws.current.onopen = () => {
-            console.log('WebSocket connected');
+            console.log('WebSocket opened');
             // ws.current?.send(JSON.stringify({ text: 'Hello from Next.js!', time: getCurrentTime() }));
             //   ws.current?.send("hello");
         };
@@ -81,17 +89,95 @@ export default function Clipboard() {
         ws.current.onmessage = (event) => {
             try {
                 console.log("received websocket event: ", event);
-                const data: Clip[] = JSON.parse(event.data);
-                setClipboard((prev) => [...prev, ...data]);
+
+                const data: Clip[] | Clip = JSON.parse(event.data);
+
+                if (Array.isArray(data)) {
+                    setClipboard(data);
+                    const newFavs: Clip[] = [];
+                    data.forEach((clip) => {
+                        if (clip.favorite) {
+                            console.log("clip in folder socket: ", clip);
+                            newFavs.push(clip);
+                        }
+                    });
+                    setFavorites(newFavs);
+                    console.log("new favs: ", newFavs);
+
+                } else {
+                    setClipboard((prev) => [data, ...prev]);
+                    if (data.favorite) {
+                        console.log("clip in folder socket: ", data);
+                        setFavorites((prev) => [...prev, data]);
+                        console.log("Added new fav: ", data)
+                    }
+                }
             } catch (err) {
                 console.error("Failed to parse message:", event.data, err);
             }
         };
 
+        ws.current.onclose = () => {
+            console.log('All WebSocket closed');
+        }
+
         return () => {
             ws.current?.close();
         };
-    }, []);
+    }, [folder]);
+
+    useEffect(() => {
+        if (!folder) {
+            return;
+        } 
+
+        ws.current = new WebSocket(`${websocket_base}/user/${user || 1}/updateFolder/${folder}`);
+
+        ws.current.onopen = () => {
+            console.log('Folder WebSocket connected');
+            // ws.current?.send(JSON.stringify({ text: 'Hello from Next.js!', time: getCurrentTime() }));
+            //   ws.current?.send("hello");
+        };
+
+        ws.current.onmessage = (event) => {
+            try {
+                console.log("received websocket event: ", event);
+                const data: Clip[] | Clip = JSON.parse(event.data);
+
+                if (Array.isArray(data)) {
+                    setClipboard(data);
+                    const newFavs: Clip[] = [];
+                    data.forEach((clip) => {
+                        console.log("clip in folder socket: ", clip);
+
+                        if (clip.favorite) {
+                            newFavs.push(clip);
+                        }
+                    });
+                    setFavorites(newFavs);
+                    console.log("new favs: ", newFavs);
+                } else {
+                    setClipboard((prev) => [data, ...prev]);
+                    if (data.favorite) {
+                        setFavorites((prev) => [...prev, data]);
+                        console.log("Added new fav: ", data);
+
+                        console.log("clip in folder socket: ", data);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to parse message:", event.data, err);
+            }
+        };
+
+        ws.current.onclose = () => {
+            console.log('Folder WebSocket closed');
+        }
+
+        return () => {
+            ws.current?.close();
+        };
+    }, [folder]);
 
 
     const toggleFavorite = (clip: Clip) => {
@@ -123,9 +209,6 @@ export default function Clipboard() {
                 console.error('Error:', error);
             }
             );
-        // console.log("Toggled favorite for: ", clip);
-        // console.log("Favorites: ", favorites);
-
     };
 
     const addToFolder = (clip: Clip, folderName: string) => {
@@ -157,6 +240,14 @@ export default function Clipboard() {
 
     const postToClipboard = (clip: string) => {
         console.log("Posting: ", clip, " to clipboard")
+        if (folder && folderSocket.current) {
+            console.log("Posting to folder: ", folder);
+            folderSocket.current.send(JSON.stringify({
+                text: clip,
+                time: getCurrentTime()
+            }))
+        }
+
         ws.current?.send(JSON.stringify({
             text: clip,
             time: getCurrentTime()
@@ -245,11 +336,11 @@ export default function Clipboard() {
         
         // If this folder is the current folder, set folder to null
         if (folder === folderName) {
-            setFolder(null);
+            setFolder("All");
         }
     }
 
-
+    console.log("Favorites: ", favorites);
 
     // Function to copy text to the clipboard
 
@@ -259,7 +350,7 @@ export default function Clipboard() {
             <Sidebar setFolder={setFolder} folders={folders} removeFolder={removeFolder} addFolder={addFolder}/>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '20px', margin: '20px', fontSize: '20' }}>
                 <Typography variant="h3" className='font-semibold'>
-                    {folder ? folder : "Clipboard"}
+                    {folder === "All" ? "Clipboard" : folder}
                 </Typography>
                 <ClipList clipboard={clipboard} toggleFavorite={toggleFavorite} favorites={favorites} />
             </Box>

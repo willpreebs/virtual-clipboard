@@ -22,11 +22,11 @@ def create_user(name: str, email: str):
 def get_user(user_id: str):
     return db.get_user(user_id)
 
-async def clipboard_socket(websocket: WebSocket, userId: str, folderName: Optional[str] = None):
+async def clipboard_socket(websocket: WebSocket, userId: str):
     await websocket.accept()
     
     try:
-        clipboard_items: list[dict] = db.get_folder(userId, folderName) if folderName else db.get_clipboard(userId) 
+        clipboard_items: list[dict] = db.get_clipboard(userId) 
     
         # Upon open, send the current state of the clipboard
         if clipboard_items and len(clipboard_items) != 0:
@@ -53,6 +53,45 @@ async def clipboard_socket(websocket: WebSocket, userId: str, folderName: Option
             await websocket.send_text(json.dumps(db.add_to_clipboard(userId, text, time)))
     except WebSocketDisconnect:
         print("Client disconnected")
+        
+
+async def folder_socket(websocket: WebSocket, userId: str, folderName: str):
+    await websocket.accept()
+    
+    try:
+        clipboard_items: list[dict] = db.get_folder(userId, folderName)
+    
+        # Upon open, send the current state of the clipboard
+        if clipboard_items and len(clipboard_items) != 0:
+            print("sending folder: ", folderName)
+            clip_text = json.dumps(clipboard_items)
+            await websocket.send_text(clip_text)
+        
+        while True:
+            data = await websocket.receive_text()
+            print(f"Received: {data} on folder: {folderName}")
+            
+            try:
+                data_d = json.loads(data)
+            except json.JSONDecodeError:
+                print(f"Could not parse data: {data}")
+                continue
+            if not isinstance(data_d, dict):
+                print(f"Data was not a dict: {data}")
+                continue
+
+            text = data_d.get('text', '')
+            time = data_d.get('time', '')
+            
+            clip = db.add_to_clipboard(userId, text, time)
+            if clip and folderName != 'All':
+                c = clip[0]
+                clip_id = c.get('id')
+                db.toggle_clip_in_folder(userId, clip_id, folderName)
+                                
+            await websocket.send_text(json.dumps(clip))
+    except WebSocketDisconnect:
+        print("Client disconnected")
 
 def get_clipboard(user_id: str):
     return db.get_clipboard(user_id)
@@ -67,7 +106,7 @@ def add_to_clipboard(userId: str, text: Body):
     
 
 def add_to_folder(userId: str, clipId: str, folderName: str):
-    return db.add_to_folder(userId, clipId, folderName)
+    return db.toggle_clip_in_folder(userId, clipId, folderName)
 
 def get_folders(userId: str):
     return db.get_folders(userId)

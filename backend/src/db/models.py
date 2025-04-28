@@ -1,6 +1,6 @@
 import json
 from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import Boolean, create_engine, Column, Integer, String
 
 Base = declarative_base()
 
@@ -19,6 +19,7 @@ class Clip(Base):
     user_id = Column(String) # user
     text = Column(String)
     time = Column(String) # datetime
+    favorite = Column(Boolean, default=False)
     
     
 class Folder(Base):

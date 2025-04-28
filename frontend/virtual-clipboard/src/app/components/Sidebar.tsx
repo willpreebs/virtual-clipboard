@@ -21,24 +21,28 @@ export default function Sidebar({ setFolder, folders, addFolder, removeFolder }:
       <h1 className="text-xl font-bold mb-6">oneClip</h1>
       <List>
         {folders.map((name, index) => (
-          <Box
-            key={index}
-            sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <ListItemButton
-              className="rounded-xl mb-2 hover:bg-gray-100"
-              onClick={() => setFolder(name)}>
-              <ListItemText
-                primary={String(name)}
-                sx={{
-                  color: "text.primary",
-                  fontWeight: "medium",
-                }}
-              />
-            </ListItemButton>
-            <IconButton onClick={() => removeFolder(name)}>
-              <RemoveIcon />
-            </IconButton>
-          </Box>
+          name && (
+            <Box
+              key={index}
+              sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <ListItemButton
+                className="rounded-xl mb-2 hover:bg-gray-100"
+                onClick={() => setFolder(name)}>
+                <ListItemText
+                  primary={String(name)}
+                  sx={{
+                    color: "text.primary",
+                    fontWeight: "medium",
+                  }}
+                />
+              </ListItemButton>
+              { name !== "All" && name !== "Favorites" &&
+                <IconButton onClick={() => removeFolder(name)}>
+                  <RemoveIcon />
+                </IconButton>
+              }
+            </Box>
+          )
         ))}
         {/* Add a button to add a new folder */}
         <ListItemButton

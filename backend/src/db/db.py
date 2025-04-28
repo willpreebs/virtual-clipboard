@@ -87,7 +87,7 @@ def add_to_clipboard(session: Session, userId: str, text: str, time: str):
     
     session.commit()
     
-    return [{"text": new_clip.text, "time": new_clip.time}]
+    return {"text": new_clip.text, "time": new_clip.time, "id": new_clip.id, "favorite": new_clip.favorite}
 
 @session_handler
 def get_clipboard(session: Session, user_id: str):
@@ -95,11 +95,13 @@ def get_clipboard(session: Session, user_id: str):
 
     if clipboard is None:
         return []
+    
+    clipboard.sort(key=lambda clip: clip.time, reverse=True)
 
-    return [{"text": clip.text, "time": clip.time, "id": clip.id} for clip in clipboard]
+    return [{"text": clip.text, "time": clip.time, "id": clip.id, "favorite": clip.favorite} for clip in clipboard]
 
 @session_handler
-def add_to_folder(session: Session, user_id, clip_id, folder_name):
+def toggle_clip_in_folder(session: Session, user_id, clip_id, folder_name):
     
     folder = session.query(Folder).filter_by(user_id=user_id, name=folder_name).first()
     
@@ -122,10 +124,14 @@ def add_to_folder(session: Session, user_id, clip_id, folder_name):
         # add to folder
         clip_ids.append(clip_id)
         folder.put_clips(clip_ids)
+        
+    if folder_name == "Favorites":
+        clip = session.query(Clip).filter_by(id=clip_id).first()
+        if clip:
+            clip.favorite = not clip.favorite
+            session.add(clip)
 
     session.commit()
-    
-    return {"status": "success"}
 
 @session_handler
 def create_favorites_folder(session: Session, user_id):
@@ -170,6 +176,9 @@ def get_clip(session: Session, clip_id: str):
 
 @session_handler
 def get_folder(session: Session, user_id: str, folder_name: str):
+    if folder_name == "All":
+        return get_clipboard(user_id)
+    
     folder = session.query(Folder).filter_by(user_id=user_id, name=folder_name).first()
     if not folder:
         return []
@@ -178,7 +187,9 @@ def get_folder(session: Session, user_id: str, folder_name: str):
     
     clips = [c for c in map(lambda clip_id: get_clip(session=session, clip_id=clip_id), clip_ids) if c]
     
-    return [{"text": clip.text, "time": clip.time, "id": clip.id} for clip in clips]
+    clips.sort(key=lambda clip: clip.time, reverse=True)
+    
+    return [{"text": clip.text, "time": clip.time, "id": clip.id, "favorite": clip.favorite} for clip in clips]
     
 
 @session_handler

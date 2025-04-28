@@ -10,7 +10,7 @@ type ClipProps = {
     favorites: Clip[];
 };
 
-export default function ClipboardItem({ clip, toggleFavorite, favorites }: ClipProps) {
+export default function ClipboardItem({ clip, toggleFavorite }: ClipProps) {
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -31,7 +31,7 @@ export default function ClipboardItem({ clip, toggleFavorite, favorites }: ClipP
                 Copy
             </Button>
             <IconButton onClick={() => toggleFavorite(clip)}>
-                {favorites.includes(clip) ? <Star /> : <StarBorder />}
+                {clip.favorite ? <Star /> : <StarBorder />}
             </IconButton>
         </Card>
     )
