@@ -79,9 +79,9 @@ class Body(BaseModel):
     time: str
 
 @session_handler
-def add_to_clipboard(session: Session, userId: str, text: str, time: str):
+def add_to_clipboard(session: Session, userId: str, text: str, time: str, favorite: bool = False):
     id = str(uuid4())
-    new_clip = Clip(id=id, user_id=userId, text=text, time=time) # Generate time in backend?
+    new_clip = Clip(id=id, user_id=userId, text=text, time=time, favorite=favorite) # Generate time in backend?
     
     session.add(new_clip)
     

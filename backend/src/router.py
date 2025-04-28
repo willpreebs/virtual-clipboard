@@ -83,10 +83,9 @@ async def folder_socket(websocket: WebSocket, userId: str, folderName: str):
             text = data_d.get('text', '')
             time = data_d.get('time', '')
             
-            clip = db.add_to_clipboard(userId, text, time)
+            clip = db.add_to_clipboard(userId, text, time, folderName == "Favorites")
             if clip and folderName != 'All':
-                c = clip[0]
-                clip_id = c.get('id')
+                clip_id = clip.get('id')
                 db.toggle_clip_in_folder(userId, clip_id, folderName)
                                 
             await websocket.send_text(json.dumps(clip))
