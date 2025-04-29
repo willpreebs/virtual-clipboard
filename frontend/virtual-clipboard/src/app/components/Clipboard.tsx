@@ -30,10 +30,28 @@ export default function Clipboard() {
     const [folder, setFolder] = useState<string>("All"); // shows All folder by default
     const [user, setUser] = useState<string>("1");
 
-    const ws = useRef<WebSocket | null>(null);
+    const folderCache = useRef<{ [key: string]: Clip[] }>({});
 
-    const folderSocket = useRef<WebSocket | null>(null);
+    const getCachedFolderContents = async (folderName: string) => {
+        if (folderCache.current[folderName]) {
+            console.log(`Cache hit for folder: ${folderName}`);
+            return folderCache.current[folderName];
+        }
+        console.log(`Cache miss for folder: ${folderName}`);
+        const contents = await getFolderContents(folderName);
+        folderCache.current[folderName] = contents;
+        return contents;
+    };
 
+    useEffect(() => {
+        if (folder) {
+            getCachedFolderContents(folder).then((contents) => {
+                setClipboard(contents);
+            });
+        }
+    }, [folder]);
+
+    const socket = useRef<WebSocket | null>(null);
     // set folders
     useEffect(() => {
         fetch(getFolders(url_base, user), {
@@ -59,27 +77,26 @@ export default function Clipboard() {
             });
     }, [user]);
 
-    // handle folder change
-    useEffect(() => {
-        if (folder) {
-            console.log("Folder changed to: ", folder);
-            getFolderContents(folder).then((contents) => {
-                setClipboard(contents);
-            });
-        }
-    }, [folder, folders]);
+    // // handle folder change
+    // useEffect(() => {
+    //     if (folder) {
+    //         console.log("Folder changed to: ", folder);
+    //         getFolderContents(folder).then((contents) => {
+    //             setClipboard(contents);
+    //         });
+    //     }
+    // }, [folder]);
 
 
     useEffect(() => {
 
-        // ws.current = new WebSocket(`${websocket_base}/user/${user || 1}/updateClipboard`);
-        ws.current = new WebSocket(`${websocket_base}/user/${user || 1}/updateFolder/${folder}`);
+        socket.current = new WebSocket(`${websocket_base}/user/${user || 1}/updateFolder/${folder}`);
 
-        ws.current.onopen = () => {
+        socket.current.onopen = () => {
             console.log('WebSocket opened');
         };
 
-        ws.current.onmessage = (event) => {
+        socket.current.onmessage = (event) => {
             try {
                 console.log("received websocket event: ", event);
 
@@ -95,12 +112,12 @@ export default function Clipboard() {
             }
         };
 
-        ws.current.onclose = () => {
-            console.log('All WebSocket closed');
+        socket.current.onclose = () => {
+            console.log('WebSocket closed');
         }
 
         return () => {
-            ws.current?.close();
+            socket.current?.close();
         };
     }, [folder]);
 
@@ -163,18 +180,13 @@ export default function Clipboard() {
 
     const postToClipboard = (clip: string) => {
         console.log("Posting: ", clip, " to clipboard")
-        if (folder && folderSocket.current) {
+        if (socket.current) {
             console.log("Posting to folder: ", folder);
-            folderSocket.current.send(JSON.stringify({
+            socket.current.send(JSON.stringify({
                 text: clip,
                 time: getCurrentTime()
             }))
         }
-
-        ws.current?.send(JSON.stringify({
-            text: clip,
-            time: getCurrentTime()
-        }))
     }
 
     const addFolder = (folderName: string) => {

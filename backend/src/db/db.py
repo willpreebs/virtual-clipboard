@@ -79,11 +79,29 @@ class Body(BaseModel):
     time: str
 
 @session_handler
-def add_to_clipboard(session: Session, userId: str, text: str, time: str, favorite: bool = False):
+def add_to_clipboard(session: Session, userId: str, text: str, time: str, folder: str):
     id = str(uuid4())
-    new_clip = Clip(id=id, user_id=userId, text=text, time=time, favorite=favorite) # Generate time in backend?
+    new_clip = Clip(id=id, user_id=userId, text=text, time=time, favorite=folder=="Favorites") # Generate time in backend?
     
     session.add(new_clip)
+    
+    if folder != "All":
+        folder = session.query(Folder).filter_by(user_id=userId, name=folder).first()
+        
+        if not folder:
+            print("Folder does not exist")
+            return {"status": "failure"}
+            
+        try:
+            clip_ids: list[str] = folder.get_clips()
+        except json.JSONDecodeError:
+            print(f"Error parsing clips as json: {folder.clips}")
+            return {"status": "failure"}
+
+        clip_ids.append(id)
+        folder.put_clips(clip_ids)
+        
+        session.add(folder)
     
     session.commit()
     
@@ -97,8 +115,9 @@ def get_clipboard(session: Session, user_id: str):
         return []
     
     clipboard.sort(key=lambda clip: clip.time, reverse=True)
-
-    return [{"text": clip.text, "time": clip.time, "id": clip.id, "favorite": clip.favorite} for clip in clipboard]
+    contents = [{"text": clip.text, "time": clip.time, "id": clip.id, "favorite": clip.favorite} for clip in clipboard]
+    print(f"Clipboard contents: ", contents)
+    return contents
 
 @session_handler
 def toggle_clip_in_folder(session: Session, user_id, clip_id, folder_name):
@@ -176,6 +195,7 @@ def get_clip(session: Session, clip_id: str):
 
 @session_handler
 def get_folder(session: Session, user_id: str, folder_name: str):
+    print("Getting folder: ", folder_name)
     if folder_name == "All":
         return get_clipboard(user_id)
     
@@ -185,11 +205,16 @@ def get_folder(session: Session, user_id: str, folder_name: str):
     
     clip_ids = [c for c in folder.get_clips() if c]
     
-    clips = [c for c in map(lambda clip_id: get_clip(session=session, clip_id=clip_id), clip_ids) if c]
+    if len(clip_ids) == 0:
+        return []
     
+    clips = [c for c in map(lambda clip_id: get_clip(session=session, clip_id=clip_id), clip_ids) if c]
     clips.sort(key=lambda clip: clip.time, reverse=True)
     
-    return [{"text": clip.text, "time": clip.time, "id": clip.id, "favorite": clip.favorite} for clip in clips]
+    contents = [{"text": clip.text, "time": clip.time, "id": clip.id, "favorite": clip.favorite} for clip in clips]
+    print(f"Contents of folder {folder_name}: ", contents)
+    
+    return contents
     
 
 @session_handler

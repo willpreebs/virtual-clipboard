@@ -19,7 +19,7 @@ class Clip(Base):
     user_id = Column(String) # user
     text = Column(String)
     time = Column(String) # datetime
-    favorite = Column(Boolean, default=False)
+    favorite = Column(Boolean)
     
     
 class Folder(Base):
