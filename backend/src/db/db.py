@@ -1,5 +1,6 @@
 from functools import wraps
 import json
+import os
 from typing import Callable, ParamSpec, TypeVar
 from uuid import uuid4
 from fastapi import HTTPException
@@ -7,21 +8,36 @@ from pydantic import BaseModel
 from sqlalchemy import Engine, create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
-from db.models import Clip, Folder, User
+from db.clipboard_models import Clip, Folder, User
+from fastapi_users import password
 
-from db import models
+import dotenv
+from db import clipboard_models
 
 R = TypeVar("R")
 P = ParamSpec("P")
 
 Base = declarative_base()
 
-DATABASE_URL = "sqlite:///./test.db"
+
+dotenv.load_dotenv()
+
+DEV_MODE = os.getenv("DEV_MODE", "False") == "True"
+
+print(os.getenv("TEST", "dotenv failed to load"))
+
+# Note: 
+if DEV_MODE:
+    DATABASE_URL = "sqlite+aiosqlite:///./dev.db"
+else:
+    DATABASE_URL = os.getenv("SUPABASE_URL")
 
 engine: Engine = None
 session_maker = None
 
-def init_db():
+pw_helper = password.PasswordHelper()
+
+async def init_db():
     global engine
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
     global session_maker
@@ -29,14 +45,14 @@ def init_db():
     
     session_maker = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     
-    models.drop_tables(engine)
-    models.create_tables(engine)
-    
-    # delete everything from tables
-    
+    if os.getenv("DROP_TABLES", "False") == "True":
+        print("Dropping tables")
+        clipboard_models.drop_tables(engine)
+        
+    await clipboard_models.create_tables(engine)
 
-    create_test_user()
-    create_favorites_folder('1')
+    test_user_id = create_test_user()
+    print(f"Created test user with id: {test_user_id}")
 
 def session_handler(func: Callable[P, R]) -> Callable[P, R | None]:
 
@@ -64,14 +80,20 @@ def session_handler(func: Callable[P, R]) -> Callable[P, R | None]:
 @session_handler
 def create_test_user(session: Session):
     
-    test_id = '1'
-        
-    user = User(id=test_id, name="testuser", email="testemail@test.com")
+    hashed = pw_helper.hash("testpass")
+            
+    test_user = User(name="testuser", 
+                     email="testemail@test.com", 
+                     hashed_password=hashed, 
+                     is_active=True,
+                     is_superuser=False,
+                     is_verified=False,
+                     devices="[]")
     
-    session.add(user)
+    session.add(test_user)
     session.commit()
     
-    return '1'
+    return test_user.id
     
 class Body(BaseModel):
     text: str

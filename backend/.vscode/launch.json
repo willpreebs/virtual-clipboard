@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug FastAPI App (with app_factory)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "backend.src", // equivalent to `python -m backend.src`
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}

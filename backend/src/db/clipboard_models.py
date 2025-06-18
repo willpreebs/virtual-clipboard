@@ -2,15 +2,24 @@ import json
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import Boolean, create_engine, Column, Integer, String
 
+from fastapi_users import models
+
 Base = declarative_base()
-
-class User(Base):
+"""
+    Default fields
+    id: ID
+    email: str
+    hashed_password: str
+    is_active: bool
+    is_superuser: bool
+    is_verified: bool
+    """
+class User(models.BaseUser, Base):
     __tablename__ = "users"
-    id = Column(String, primary_key=True, index=True) # uuid
-    name = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
-    devices = Column(String) # json list
 
+    name = Column(String) # full name
+    devices = Column(String, default="[]") # json list
+    
 
 class Clip(Base):
     __tablename__ = "clipboard"
@@ -35,8 +44,9 @@ class Folder(Base):
     def put_clips(self, cs):
         self.clips = json.dumps(cs)
     
-def create_tables(engine):
-    Base.metadata.create_all(bind=engine)
+async def create_tables(engine):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all) 
     
 def drop_tables(engine):
     Base.metadata.drop_all(bind=engine)

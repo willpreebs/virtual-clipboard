@@ -1,4 +1,6 @@
 .venv
-test.db
+*.db
 node_modules
 .next
+.env
+secret_generator.py

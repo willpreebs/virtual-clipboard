@@ -3,14 +3,41 @@
 import json
 from typing import Optional
 from uuid import uuid4
-from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from .db import db
-from .db.models import Clip, User
-
+from db import clipboard_models, db
 from sqlalchemy.orm import Session
         
+
+def set_up_router() -> APIRouter:
+    
+    server = APIRouter()
+    
+    # server.add_api_route(path="/users", endpoint=router.create_user, methods=["POST"])
+    
+    # server.add_api_route(path="/users/{user_id}", endpoint=router.get_user, methods=["POST"])
+    
+    
+    server.add_api_route(path="/user/{user_id}/clipboard", endpoint=get_clipboard, methods=["GET"])
+    
+    server.add_api_route(path="/user/{userId}/clipboard", endpoint=add_to_clipboard, methods=["POST"])
+        
+    server.add_api_websocket_route(path="/user/{userId}/updateFolder/{folderName}", endpoint=socket)
+    
+    server.add_api_route(path="/user/{userId}/clip/{clipId}/folder/{folderName}", endpoint=add_to_folder, methods=["POST"])
+        
+    server.add_api_route(path="/user/{userId}/addFolder/{folderName}", endpoint=add_folder, methods=["POST"])
+    
+    server.add_api_route(path="/user/{userId}/removeFolder/{folderName}", endpoint=remove_folder, methods=["DELETE"])
+    
+    server.add_api_route(path="/user/{userId}/folders", endpoint=get_folders, methods=["GET"])
+    
+    server.add_api_route(path="/user/{userId}/folder/{folderName}", endpoint=get_folder, methods=["GET"])
+    
+    return server
+
+
 def create_user(name: str, email: str):
     
     id = db.create_user(name, email)
@@ -60,11 +87,10 @@ def get_clipboard(user_id: str):
 
 class Body(BaseModel):
     text: str
-    user: str
     time: str
     
-def add_to_clipboard(userId: str, text: Body):
-    ...
+def add_to_clipboard(userId: str, body: Body):
+    print(f"Received request to post to clipboard with text: {body.text} at time: {body.time}")
     
 
 def add_to_folder(userId: str, clipId: str, folderName: str):
